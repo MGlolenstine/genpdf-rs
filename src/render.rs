@@ -32,7 +32,7 @@ use crate::{Margins, Mm, Position, Size};
 use crate::{Rotation, Scale};
 
 /// A position relative to the top left corner of a layer.
-struct LayerPosition(Position);
+pub(crate) struct LayerPosition(Position);
 
 impl LayerPosition {
     pub fn from_area(area: &Area<'_>, position: Position) -> Self {
@@ -359,7 +359,29 @@ impl<'p> Layer<'p> {
         self.data.layer.add_shape(line);
     }
 
-    fn set_fill_color(&self, color: Option<Color>) {
+    pub(crate) fn add_filled_line_shape<I>(&self, points: I)
+    where
+        I: IntoIterator<Item = LayerPosition>,
+    {
+        let line_points: Vec<_> = points
+            .into_iter()
+            .map(|pos| (self.transform_position(pos).into(), false))
+            .collect();
+        let line = printpdf::Line {
+            points: line_points,
+            is_closed: true,
+            has_fill: true,
+            has_stroke: true,
+            is_clipping_path: false,
+        };
+        self.data.layer.add_shape(line);
+    }
+
+    pub(crate) fn fill_color(&self) -> Color {
+        self.data.fill_color.get()
+    }
+
+    pub(crate) fn set_fill_color(&self, color: Option<Color>) {
         if self.data.update_fill_color(color) {
             self.data
                 .layer
@@ -367,7 +389,7 @@ impl<'p> Layer<'p> {
         }
     }
 
-    fn set_outline_thickness(&self, thickness: Mm) {
+    pub(crate) fn set_outline_thickness(&self, thickness: Mm) {
         if self.data.update_outline_thickness(thickness) {
             self.data
                 .layer
@@ -375,7 +397,11 @@ impl<'p> Layer<'p> {
         }
     }
 
-    fn set_outline_color(&self, color: Color) {
+    pub(crate) fn outline_color(&self) -> Color {
+        self.data.outline_color.get()
+    }
+
+    pub(crate) fn set_outline_color(&self, color: Color) {
         if self.data.update_outline_color(color) {
             self.data.layer.set_outline_color(color.into());
         }
@@ -467,9 +493,9 @@ impl From<printpdf::PdfLayerReference> for LayerData {
 /// [`printpdf::PdfLayerReference`]: https://docs.rs/printpdf/0.3.2/printpdf/types/pdf_layer/struct.PdfLayerReference.html
 #[derive(Clone)]
 pub struct Area<'p> {
-    layer: Layer<'p>,
-    origin: Position,
-    size: Size,
+    pub(crate) layer: Layer<'p>,
+    pub(crate) origin: Position,
+    pub(crate) size: Size,
 }
 
 impl<'p> Area<'p> {
@@ -589,6 +615,36 @@ impl<'p> Area<'p> {
             .add_line_shape(points.into_iter().map(|pos| self.position(pos)));
     }
 
+    /// Draws an area background
+    ///
+    /// The points are relative to the upper left corner of the area.
+    pub fn draw_area_background(&self, style: Style) {
+        self.layer.set_outline_thickness(Mm::from(0));
+        let orig_outline_color = self.layer.outline_color();
+        self.layer.set_outline_color(
+            style
+                .background_color()
+                .unwrap_or(Color::Rgb(255, 255, 255)),
+        );
+        let points: &[Position] = &[
+            Position::new(0, 0),
+            Position::new(self.size.width, 0),
+            Position::new(self.size.width, self.size.height),
+            Position::new(0, self.size.height),
+        ];
+
+        let orig_fill_color = self.layer.fill_color();
+        self.layer.set_fill_color(Some(
+            style
+                .background_color()
+                .unwrap_or(Color::Rgb(255, 255, 255)),
+        ));
+        self.layer
+            .add_filled_line_shape(points.iter().map(|pos| self.position(*pos)));
+        self.layer.set_outline_color(orig_outline_color);
+        self.layer.set_fill_color(Some(orig_fill_color));
+    }
+
     /// Tries to draw the given string at the given position and returns `true` if the area was
     /// large enough to draw the string.
     ///
@@ -628,7 +684,7 @@ impl<'p> Area<'p> {
     }
 
     /// Returns a position relative to the top left corner of this area.
-    fn position(&self, position: Position) -> LayerPosition {
+    pub(crate) fn position(&self, position: Position) -> LayerPosition {
         LayerPosition::from_area(self, position)
     }
 }
@@ -725,7 +781,7 @@ impl<'f, 'p> TextSection<'f, 'p> {
             // Built-in fonts always use the Windows-1252 encoding
             encode_win1252(s)?
         } else {
-            font.glyph_ids(&self.font_cache, s.chars())
+            font.glyph_ids(self.font_cache, s.chars())
         };
 
         let font = self

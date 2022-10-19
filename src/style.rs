@@ -81,7 +81,7 @@ impl From<Color> for printpdf::Color {
 }
 
 /// A text effect (bold or italic).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Effect {
     /// Bold text.
     Bold,
@@ -110,6 +110,7 @@ pub struct Style {
     font_family: Option<fonts::FontFamily<fonts::Font>>,
     font_size: Option<u8>,
     line_spacing: Option<f64>,
+    background_color: Option<Color>,
     color: Option<Color>,
     is_bold: bool,
     is_italic: bool,
@@ -118,6 +119,9 @@ pub struct Style {
 impl Style {
     /// Creates a new style without settings.
     pub fn new() -> Style {
+        // Style {
+        //     ..Default::default()
+        // }
         Style::default()
     }
 
@@ -132,6 +136,9 @@ impl Style {
         }
         if let Some(color) = style.color {
             self.color = Some(color);
+        }
+        if let Some(color) = style.background_color {
+            self.background_color = Some(color);
         }
         if style.is_bold {
             self.is_bold = true;
@@ -241,6 +248,22 @@ impl Style {
     pub fn with_color(mut self, color: Color) -> Self {
         self.set_color(color);
         self
+    }
+
+    /// Sets the background color for this style.
+    pub fn set_background_color(&mut self, color: Color) {
+        self.background_color = Some(color);
+    }
+
+    /// Sets the outline color for this style and returns it.
+    pub fn with_background_color(mut self, color: Color) -> Self {
+        self.set_background_color(color);
+        self
+    }
+
+    /// Returns background color
+    pub fn background_color(&self) -> Option<Color> {
+        self.background_color
     }
 
     /// Calculates the width of the given character with this style using the data in the given
@@ -452,7 +475,7 @@ impl<'s> StyledStr<'s> {
     ///
     /// [`FontCache`]: ../fonts/struct.FontCache.html
     pub fn width(&self, font_cache: &fonts::FontCache) -> Mm {
-        self.style.str_width(font_cache, &self.s)
+        self.style.str_width(font_cache, self.s)
     }
 }
 

@@ -1471,6 +1471,8 @@ impl TableLayout {
             row_height = row_height.max(element_result.size.height);
         }
         result.size.height = row_height;
+        // println!("Background Color: {:?}", style.background_color());
+        result.draw_background(area, style);
 
         if let Some(decorator) = &mut self.cell_decorator {
             for (i, area) in areas.into_iter().enumerate() {
@@ -1491,14 +1493,17 @@ impl Element for TableLayout {
         mut area: render::Area<'_>,
         style: Style,
     ) -> Result<RenderResult, Error> {
+        // println!("Background Color: {:?}", style.background_color());
         let mut result = RenderResult::default();
         if self.column_weights.is_empty() {
+            /* Set background colour */
+            // area.draw_area_background(style);
+            /* End: Set background colour*/
             return Ok(result);
         }
         if let Some(decorator) = &mut self.cell_decorator {
             decorator.set_table_size(self.column_weights.len(), self.rows.len());
         }
-        result.size.width = area.size().width;
         while self.render_idx < self.rows.len() {
             let row_result = self.render_row(context, area.clone(), style)?;
             result.size.height += row_result.size.height;
@@ -1508,6 +1513,10 @@ impl Element for TableLayout {
             }
             self.render_idx += 1;
         }
+        /* Set background colour */
+        // area.draw_area_background(style);
+        // result.draw_background(area, style);
+        /* End: Set background colour*/
         result.has_more = self.render_idx < self.rows.len();
         Ok(result)
     }

@@ -170,6 +170,9 @@ use derive_more::{
 };
 
 use error::Context as _;
+use render::Area;
+use style::Color;
+use style::Style;
 
 /// A length measured in millimeters.
 ///
@@ -783,6 +786,38 @@ pub struct RenderResult {
     pub size: Size,
     /// Indicates whether the element contains more content that did not fit in the provided area.
     pub has_more: bool,
+}
+
+impl RenderResult {
+    /// Draws an area background
+    ///
+    /// The points are relative to the upper left corner of the area.
+    pub fn draw_background(&self, area: Area<'_>, style: Style) {
+        area.layer.set_outline_thickness(Mm::from(0));
+        let orig_outline_color = area.layer.outline_color();
+        area.layer.set_outline_color(
+            style
+                .background_color()
+                .unwrap_or(Color::Rgb(255, 255, 255)),
+        );
+        let points: &[Position] = &[
+            Position::new(0, 0),
+            Position::new(self.size.width, 0),
+            Position::new(self.size.width, self.size.height),
+            Position::new(0, self.size.height),
+        ];
+
+        let orig_fill_color = area.layer.fill_color();
+        area.layer.set_fill_color(Some(
+            style
+                .background_color()
+                .unwrap_or(Color::Rgb(255, 255, 255)),
+        ));
+        area.layer
+            .add_filled_line_shape(points.iter().map(|pos| area.position(*pos)));
+        area.layer.set_outline_color(orig_outline_color);
+        area.layer.set_fill_color(Some(orig_fill_color));
+    }
 }
 
 /// Prepares a page of a document.
